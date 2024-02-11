@@ -12,140 +12,184 @@
 
 using namespace std;
 
+// constructor
 MyDataStore::MyDataStore() {
-    // Constructor remains unchanged.
+
 }
 
+// destructor
 MyDataStore::~MyDataStore() {
-    // Iterate over products set and delete each dynamically allocated Product
-    set<Product*>::iterator it;
-    for (it = products.begin(); it != products.end(); ++it) {
-        delete *it;
-    }
-    products.clear();
 
-    // Iterate over users set and delete each dynamically allocated User
-    set<User*>::iterator userit;
-    for (userit = users.begin(); userit != users.end(); ++userit) {
-        delete *userit;
-    }
-    users.clear();
-    // Automatically clear maps to release memory.
-    pMap.clear();
-    cartMap.clear();
+  // clear the cart and product maps
+  pMap.clear();
+  cartMap.clear();
+  
+
+  // iterate over the products and delete the dynamic allocated product
+  set<Product*>::iterator it;
+  for (it = products.begin(); it != products.end(); ++it) {
+    delete(*it);
+  }
+  products.clear();
+
+  // iterate over the users set and delete allocated
+
+  set<User*>::iterator userit;
+  for (userit = users.begin(); userit != users.end(); ++userit) {
+    delete(*userit);
+  }
+  users.clear();
 }
 
+// add the product to the data store
 void MyDataStore::addProduct(Product* p) {
-    products.insert(p);
-    set<string> words = p->keywords();
-    for (set<string>::iterator it = words.begin(); it != words.end(); ++it) {
-        pMap[*it].insert(p);
+  // insert the product 
+  products.insert(p);
+
+  // run throught he keywords into the map and search
+  set<string> words = p->keywords();
+  set<string>::iterator it;
+  for (it = words.begin(); it != words.end(); ++it) {
+    // if the keyword isn't in the map, add a new entry
+    if (pMap.find(*it) == pMap.end()) {
+      set<Product*> toAdd;
+      toAdd.insert(p);
+      pMap.insert(std::pair<string, set<Product*>>(*it, toAdd));
     }
+    // if the keyword is there, add it to the set
+    else {
+      (pMap.find(*it)->second).insert(p);
+    }
+  }
 }
 
+// add a user to the store
 void MyDataStore::addUser(User* u) {
-    users.insert(u);
-    queue<Product*> cart;
-    cartMap[convToLower(u->getName())] = cart;
+
+  // insert the user into the set
+  users.insert(u);
+  // have an empty shopping cart
+  queue<Product*> cart;
+  // insert the cart into the cart map
+  cartMap.insert(std::pair<string, queue<Product*>>(convToLower(u->getName()), cart));
 }
 
+// we want to search for the products correctly
 std::vector<Product*> MyDataStore::search(std::vector<std::string>& terms, int type) {
-    set<Product*> resultSet;
-    if (type == 0) { // AND search
-        bool isFirstTerm = true;
-        for (vector<string>::size_type i = 0; i < terms.size(); ++i) {
-            if (pMap.find(terms[i]) != pMap.end()) {
-                if (isFirstTerm) {
-                    resultSet = pMap[terms[i]];
-                    isFirstTerm = false;
-                } else {
-                    resultSet = setIntersection(resultSet, pMap[terms[i]]);
-                }
-            } else {
-                resultSet.clear();
-                break;
-            }
-        }
-    } else if (type == 1) { // OR search
-        for (vector<string>::size_type i = 0; i < terms.size(); ++i) {
-            if (pMap.find(terms[i]) != pMap.end()) {
-                resultSet = setUnion(resultSet, pMap[terms[i]]);
-            }
-        }
-    }
 
-    vector<Product*> prod;
-    for (set<Product*>::iterator it = resultSet.begin(); it != resultSet.end(); ++it) {
-        prod.push_back(*it);
+  // hold the search results
+  std::vector<Product*> ans;
+
+  // hold the intermediate search results
+  set<Product*> temp;
+  // search
+  if (type == 0) {
+    for (size_t i = 0; i < terms.size(); i++) {
+      if (pMap.find(terms[i]) != pMap.end()) {
+        if (temp.size() == 0) {
+          temp = pMap.find(terms[i])->second;
+        }
+        else {
+          temp = setIntersection(temp, pMap.find(terms[i])->second);
+        }
+      }
     }
-    return prod;
+  }
+  else if (type == 1) {
+    for (size_t i = 0; i < terms.size(); i++) {
+      if (pMap.find(terms[i]) != pMap.end()) {
+        temp = setUnion(temp, pMap.find(terms[i])->second);
+      }
+    }
+  }
+
+  set<Product*>::iterator it;
+  for (it = temp.begin(); it != temp.end(); ++it) {
+    ans.push_back(*it);
+  }
+
+  return ans;
 }
 
+// output the state of the datastore
 void MyDataStore::dump(std::ostream& ofile) {
-    ofile << "<products>" << endl;
-    for (set<Product*>::iterator it = products.begin(); it != products.end(); ++it) {
-        (*it)->dump(ofile);
-    }
-    ofile << "</products>" << endl;
+  // output the products
+  ofile << "<products>" << endl;
+  set<Product*>::iterator it;
+  for (it = products.begin(); it != products.end(); ++it) {
+    (*it)->dump(ofile);
+  }
+  ofile << "</products>" << endl;
 
-    ofile << "<users>" << endl;
-    for (set<User*>::iterator userit = users.begin(); userit != users.end(); ++userit) {
-        (*userit)->dump(ofile);
-    }
-    ofile << "</users>" << endl;
+  // output the users
+  ofile << "<users>" << endl;
+  set<User*>::iterator userit;
+  for (userit = users.begin(); userit != users.end(); ++userit) {
+    (*userit)->dump(ofile);
+  }
+  ofile << "</users>" << endl;
 }
 
+// add the product to the shopping cart
 void MyDataStore::addToCart(std::string username, Product* p) {
-    string lowercaseName = convToLower(username);
-    if (cartMap.find(lowercaseName) != cartMap.end()) {
-        cartMap[lowercaseName].push(p);
-    } else {
-        cout << "Invalid request" << endl;
-    }
+  string u = convToLower(username);
+  if (cartMap.find(u) == cartMap.end()) {
+    cout << "Invalid request" << endl;
+  }
+  else {
+    cartMap.find(u)->second.push(p);
+  }
 }
 
 void MyDataStore::printCart(std::string username) {
-    string lowercaseName = convToLower(username);
-    if (cartMap.find(lowercaseName) != cartMap.end()) {
-        queue<Product*> tempCart = cartMap[lowercaseName];
-        int index = 1;
-        while (!tempCart.empty()) {
-            cout << "Item " << index << ": " << tempCart.front()->displayString() << endl;
-            tempCart.pop();
-            ++index;
-        }
-    } else {
-        cout << "Invalid username" << endl;
+  string u = convToLower(username);
+  if (cartMap.find(u) == cartMap.end()) {
+    cout << "Invalid username" << endl;
+  }
+  else {
+    queue<Product*> copy = cartMap.find(u)->second;
+    int index = 1;
+    while (!copy.empty()) {
+      Product* p = copy.front();
+      cout << "Item " << index << endl;
+      cout << p->displayString() << endl;
+      index++;
+      copy.pop();
     }
+  }
 }
 
 void MyDataStore::buyCart(std::string username) {
-    string lowercaseName = convToLower(username);
-    if (cartMap.find(lowercaseName) == cartMap.end()) {
-        cout << "Invalid username" << endl;
+  string lowercaseName = convToLower(username);
+ if (cartMap.find(lowercaseName) == cartMap.end()) {
+   cout << "Invalid username" << endl;
+ }
+ else {
+   //finds the user associated with that username
+   set<User*>::iterator it;
+   User* u = nullptr;
+   for (it = users.begin(); it != users.end(); ++it) {
+     if (((*it)->getName().compare(lowercaseName) == 0)) {
+       u = (*it);
+       break;
+     }
+   }
+
+   //goes through the cart and continues buying as long as it is valid
+   //checks if the cart is not empty and if item is in stock
+   //and if the user has enough money
+    Product* currProd = nullptr;   //buffer for the products
+
+    while ((!cartMap.find(lowercaseName)->second.empty())) {
+      currProd = cartMap.find(lowercaseName)->second.front();
+      if (currProd->getQty() > 0 && (u->getBalance() - currProd->getPrice() > 0)) {
+        currProd->subtractQty(1);
+        u->deductAmount(currProd->getPrice());
+        cartMap.find(lowercaseName)->second.pop();
+      }
+      else {
         return;
-    }
-
-    User* user = nullptr;
-    for (set<User*>::iterator it = users.begin(); it != users.end(); ++it) {
-        if (convToLower((*it)->getName()) == lowercaseName) {
-            user = *it;
-            break;
-        }
-    }
-
-    if (!user) {
-        cout << "User not found." << endl;
-        return;
-    }
-
-    queue<Product*>& cart = cartMap[lowercaseName];
-    while (!cart.empty()) {
-        Product* product = cart.front();
-        if (product->getQty() > 0 && user->getBalance() >= product->getPrice()) {
-            product->subtractQty(1);
-            user->deductAmount(product->getPrice());
-        }
-        cart.pop();
-    }
+      }
+   }
+ }
 }
