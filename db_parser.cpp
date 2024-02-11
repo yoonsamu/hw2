@@ -234,4 +234,3 @@ void UserSectionParser::reportItemsRead(std::ostream& os)
 {
     os << "Read " << numRead_ << " users" << endl;
 }
-

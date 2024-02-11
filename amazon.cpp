@@ -9,13 +9,20 @@
 #include "db_parser.h"
 #include "product_parser.h"
 #include "util.h"
+#include "book.h"
+#include "clothing.h"
+#include "movie.h"
+#include "mydatastore.h"
 
 using namespace std;
+
+
 struct ProdNameSorter {
     bool operator()(Product* p1, Product* p2) {
         return (p1->getName() < p2->getName());
     }
 };
+
 void displayProducts(vector<Product*>& hits);
 
 int main(int argc, char* argv[])
@@ -29,10 +36,7 @@ int main(int argc, char* argv[])
      * Declare your derived DataStore object here replacing
      *  DataStore type to your derived type
      ****************/
-    DataStore ds;
-
-
-
+    MyDataStore ds;
     // Instantiate the individual section and product parsers we want
     ProductSectionParser* productSectionParser = new ProductSectionParser;
     productSectionParser->addProductParser(new ProductBookParser);
@@ -62,13 +66,16 @@ int main(int argc, char* argv[])
     cout << "====================================" << endl;
 
     vector<Product*> hits;
-    bool done = false;
-    while(!done) {
+    bool isFinished = false;
+
+    while(!isFinished) {
+
         cout << "\nEnter command: " << endl;
         string line;
         getline(cin,line);
         stringstream ss(line);
         string cmd;
+
         if((ss >> cmd)) {
             if( cmd == "AND") {
                 string term;
@@ -80,6 +87,7 @@ int main(int argc, char* argv[])
                 hits = ds.search(terms, 0);
                 displayProducts(hits);
             }
+
             else if ( cmd == "OR" ) {
                 string term;
                 vector<string> terms;
@@ -90,6 +98,7 @@ int main(int argc, char* argv[])
                 hits = ds.search(terms, 1);
                 displayProducts(hits);
             }
+
             else if ( cmd == "QUIT") {
                 string filename;
                 if(ss >> filename) {
@@ -97,21 +106,61 @@ int main(int argc, char* argv[])
                     ds.dump(ofile);
                     ofile.close();
                 }
-                done = true;
+                isFinished = true;
             }
+
+
 	    /* Add support for other commands here */
 
 
-
-
+      //  implementation for viewcart add cart and buy cart
+            else if (cmd == "VIEWCART") {
+              string username = "";
+              if (ss >> username) {
+                ds.printCart(username);
+              }
+              else {
+                cout << "Invalid username" << endl;
+              }
+            }
+            else if (cmd == "ADD") {
+              string username = "";
+              size_t index = 0;
+              if (ss >> username) {
+                if (ss >> index) {
+                  if (index <= hits.size() && index > 0) {
+                    ds.addToCart(username, hits[index - 1]);
+                  }
+                  else {
+                    cout << "Invalid request" << endl;
+                  }
+                }
+                else {
+                  cout << "Invalid request" << endl;
+                }
+              }
+              else {
+                cout << "Invalid request" << endl;
+              }
+            }
+            else if (cmd == "BUYCART") {
+              string username = "";
+              if (ss >> username) {
+                ds.buyCart(username);
+              }
+              else {
+                cout << "Invalid username" << endl;
+              }
+            }
             else {
                 cout << "Unknown command" << endl;
             }
         }
-
     }
     return 0;
 }
+
+
 
 void displayProducts(vector<Product*>& hits)
 {
@@ -120,6 +169,8 @@ void displayProducts(vector<Product*>& hits)
     	cout << "No results found!" << endl;
     	return;
     }
+
+
     std::sort(hits.begin(), hits.end(), ProdNameSorter());
     for(vector<Product*>::iterator it = hits.begin(); it != hits.end(); ++it) {
         cout << "Hit " << setw(3) << resultNo << endl;
